@@ -1,13 +1,102 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine. See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
-# Use a package of configuration called an orb.
-orbs:
-  # Declare a dependency on the welcome-orb
-  welcome: circleci/welcome-orb@0.4.1
-# Orchestrate or schedule a set of jobs
+jobs:
+  run_tests:
+    docker:
+      - image: circleci/node:12
+    steps:
+      - checkout
+      - run:
+          name: Install npm dependencies
+          command: |
+            npm install --save
+      - run:
+          name: Run Unit Tests
+          command: |
+            ./node_modules/mocha/bin/mocha test/ --reporter mochawesome --reporter-options reportDir=test-results,reportFilename=test-results
+      - store_test_results:
+          path: test-results
+  gke_create_cluster:
+    docker:
+      - image: ariv3ra/terraform-gcp:latest
+    environment:
+      CLOUDSDK_CORE_PROJECT: k8s-tf-pravega-318009
+    steps:
+      - checkout
+      - run:
+          name: Create GKE Cluster
+          command: |
+            echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
+            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            cd gke_cluster
+            terraform init
+            terraform plan -var credentials=$HOME/gcloud_keys -out=plan.txt
+            terraform apply plan.txt
+  gke_deploy_pravega:
+    docker:
+      - image: ariv3ra/terraform-gcp:latest
+    environment:
+      CLOUDSDK_CORE_PROJECT: k8s-tf-pravega-318009
+    steps:
+      - checkout
+      - run:
+          name: Deploy Pravega to GKE
+          command: |
+            export CLUSTER_NAME="cluster1"
+            export TAG=0.2.<< pipeline.number >>
+            export DOCKER_IMAGE="docker-image=pravega/pravega:latest"
+            echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
+            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            gcloud container clusters get-credentials $CLUSTER_NAME --zone="us-central1-c" --project "k8s-tf-pravega-318009"
+            cd k8s_pravega_app
+            terraform init
+            terraform plan -var $DOCKER_IMAGE -out=plan.txt
+            terraform apply plan.txt
+            export ENDPOINT="$(terraform output endpoint)"
+            mkdir -p /tmp/gke/ && echo 'export ENDPOINT='${ENDPOINT} > /tmp/gke/gke-endpoint
+      - persist_to_workspace:
+          root: /tmp/gke
+          paths:
+            - "*"
+  gke_destroy_cluster:
+    docker:
+      - image: ariv3ra/terraform-gcp:latest
+    environment:
+      CLOUDSDK_CORE_PROJECT: k8s-tf-pravega-318009
+    steps:
+      - checkout
+      - run:
+          name: Destroy GKE Cluster
+          command: |
+            export CLUSTER_NAME="cluster1"
+            export TAG=0.2.<< pipeline.number >>
+            export DOCKER_IMAGE="docker-image=pravega/pravega:latest"            
+            echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
+            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            cd k8s_pravega_app
+            terraform init
+            gcloud container clusters get-credentials $CLUSTER_NAME --zone="us-central1-c" --project "k8s-tf-pravega-318009"           
+            terraform destroy -var $DOCKER_IMAGE --auto-approve
+            cd ../gke_cluster/
+            terraform init
+            terraform destroy -var credentials=$HOME/gcloud_keys --auto-approve
 workflows:
-  # Name the workflow "welcome"
-  welcome:
-    # Run the welcome/run job in its own container
+  build_test:
     jobs:
-      - welcome/run
+      - run_tests
+      - gke_create_cluster
+      - gke_deploy_app:
+          requires:
+            - run_tests
+            - gke_create_cluster
+      - approve-destroy:
+          type: approval
+          requires:
+            - gke_create_cluster
+            - gke_deploy_pravega
+      - gke_destroy_cluster:
+          requires:
+            - approve-destroy
+
