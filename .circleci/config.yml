@@ -26,11 +26,11 @@ jobs:
           name: Create GKE Cluster
           command: |
             echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
-            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
-            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            echo $GOOGLE_CLOUD_KEYS > $HOME/gcloud_keys.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys.json
             cd gke_cluster
             terraform init
-            terraform plan -var credentials=$HOME/gcloud_keys -out=plan.txt
+            terraform plan -var credentials=$HOME/gcloud_keys.json -out=plan.txt
             terraform apply plan.txt
   gke_deploy_pravega:
     docker:
