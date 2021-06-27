@@ -66,7 +66,7 @@ jobs:
             terraform destroy -var $DOCKER_IMAGE --auto-approve
             cd ../gke_cluster/
             terraform init
-            terraform destroy -var credentials=$HOME/gcloud_keys --auto-approve
+            terraform destroy -var credentials=$HOME/gcloud_keys.json --auto-approve
 workflows:
   build_test:
     jobs:
