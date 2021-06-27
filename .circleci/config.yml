@@ -30,9 +30,9 @@ jobs:
             export CLUSTER_NAME="cluster1"
             export TAG=0.2.<< pipeline.number >>
             export DOCKER_IMAGE="docker-image=pravega/pravega:latest"
-            echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
-            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
-            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            echo $TF_CLOUD_TOKEN > $HOME/.terraformrc
+            echo $GOOGLE_CLOUD_KEYS > $HOME/gcloud_keys.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys.json
             gcloud container clusters get-credentials $CLUSTER_NAME --zone="us-central1-c" --project "k8s-tf-pravega-318009"
             cd k8s_pravega_app
             terraform init
@@ -57,9 +57,9 @@ jobs:
             export CLUSTER_NAME="cluster1"
             export TAG=0.2.<< pipeline.number >>
             export DOCKER_IMAGE="docker-image=pravega/pravega:latest"            
-            echo $TF_CLOUD_TOKEN | base64 -d > $HOME/.terraformrc
-            echo $GOOGLE_CLOUD_KEYS | base64 -d > $HOME/gcloud_keys
-            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys
+            echo $TF_CLOUD_TOKEN > $HOME/.terraformrc
+            echo $GOOGLE_CLOUD_KEYS > $HOME/gcloud_keys.json
+            gcloud auth activate-service-account --key-file ${HOME}/gcloud_keys.json
             cd k8s_pravega_app
             terraform init
             gcloud container clusters get-credentials $CLUSTER_NAME --zone="us-central1-c" --project "k8s-tf-pravega-318009"           
