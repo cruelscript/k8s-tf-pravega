@@ -12,7 +12,7 @@ jobs:
       - run:
           name: Run Unit Tests
           command: |
-            ./node_modules/mocha/bin/mocha test/ --reporter mochawesome --reporter-options reportDir=test-results,reportFilename=test-results
+            ./node_modules/.bin/mocha test/ --reporter mochawesome --reporter-options reportDir=test-results,reportFilename=test-results
       - store_test_results:
           path: test-results
   gke_create_cluster:
